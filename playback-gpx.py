@@ -1,5 +1,5 @@
-#!/usr/bin/env python
-import sys
+"""Take a walk."""
+
 import logging
 from optparse import OptionParser
 import os
@@ -17,13 +17,13 @@ from subprocess import check_output
 # added -r option so users can pass extra flags to geanyshell like an ip address
 # added ability to pause execution of script with keyboard interrupt
 
-def returnDefaultPath():
+def return_default_path():
     if(platform.system() == 'Linux'):
-      return "/usr/bin/geanyshell"
+        return "/usr/bin/geanyshell"
     elif(platform.system() == 'Windows'):
-      return "C:\Program Files\Genymobile\Genymotion\genyshell.exe"
+        return "C:\Program Files\Genymobile\Genymotion\genyshell.exe"
     elif(platform.system() == 'Darwin'):
-      return "/Applications/Genymotion Shell.app/Contents/MacOS/genyshell"
+        return "/Applications/Genymotion Shell.app/Contents/MacOS/genyshell"
 
 def process_file(path, options):
     logging.info("processing " + path)
@@ -36,14 +36,14 @@ def process_file(path, options):
             for point in segment.points:
                 set_point(point, options)
                 try:
-                  time.sleep(options.interval)
+                    time.sleep(options.interval)
                 except KeyboardInterrupt:
-                  print '\nPausing...  (Hit ENTER to continue, type quit or exit.)'
-                  response = raw_input()
-                  if (response == 'quit') or (response == 'exit'):
-                    exit()
-                  else:
-                    continue
+                    print '\nPausing...  (Hit ENTER to continue, type quit or exit.)'
+                    response = raw_input()
+                    if (response == 'quit') or (response == 'exit'):
+                        exit()
+                    else:
+                        continue
 
     for route in gpx.routes:
         for point in route:
@@ -53,39 +53,45 @@ def process_file(path, options):
 
 def set_point(point, options):
     try:
-      logging.info('Point at ({0},{1},{2})'.format(point.latitude, point.longitude, point.elevation))
-      logging.debug(check_output([options.command, "-c", "gps setlatitude " + str(point.latitude), options.ipaddress]))
-      logging.debug(check_output([options.command, "-c", "gps setlongitude " + str(point.longitude), options.ipaddress]))
-      logging.debug(check_output([options.command, "-c", "gps setaltitude " + str(point.elevation), options.ipaddress]))
+        if point.longitude is None or point.latitude is None or len(str(point.latitude)) < 2 or len(str(point.longitude)) < 2:
+            logging.warn('Skipping point with invalid lat/long data')
+            return
+        logging.info('Point at ({0},{1},{2})'.format(point.latitude, point.longitude, point.elevation))
+        logging.debug(check_output([options.command, "-c", "gps setlatitude " + str(point.latitude), options.ipaddress]))
+        logging.debug(check_output([options.command, "-c", "gps setlongitude " + str(point.longitude), options.ipaddress]))
+        if point.elevation is not None:
+            logging.debug(check_output([options.command, "-c", "gps setaltitude " + str(point.elevation), options.ipaddress]))
     except KeyboardInterrupt:
-      print '\nPausing...  (Hit ENTER to continue, type quit or exit.)'
-      try:
-        response = raw_input()
-        if (response == 'quit') or (response == 'exit'):
-          exit()
-        print 'Resuming...'
-      except KeyboardInterrupt:
-        print 'Resuming...'
+        print '\nPausing...  (Hit ENTER to continue, type quit or exit.)'
+        try:
+            response = raw_input()
+            if (response == 'quit') or (response == 'exit'):
+                exit()
+            print 'Resuming...'
+        except KeyboardInterrupt:
+            print 'Resuming...'
+    except Exception as e:
+        logging.error("Unhandled error encountered %s", e)
 
 
-if __name__=='__main__':
+if __name__ == '__main__':
     usage = "usage: %prog "
     parser = OptionParser(usage=usage,
-        description="Read a gpx file and use it to send points to Genymotion emulator at a fixed interval")
+                          description="Read a gpx file and use it to send points to Genymotion emulator at a fixed interval")
     parser.add_option("-d", "--debug", action="store_true", dest="debug")
     parser.add_option("-q", "--quiet", action="store_true", dest="quiet")
     parser.add_option("-i", "--interval", type="int", dest="interval", default="2",
-        help="interval between points in seconds, defaults to 2 seconds")
+                      help="interval between points in seconds, defaults to 2 seconds")
     parser.add_option("-r", "--ip_address", dest="ipaddress",
-        help="any extra flags passed to genymotion shell",
-        default="")
+                      help="any extra flags passed to genymotion shell",
+                      default="")
     parser.add_option("-g", "--genymotion-shell", dest="command",
-        help="path to the genyshell command",
-        default=returnDefaultPath())
+                      help="path to the genyshell command",
+                      default=return_default_path())
     (options, args) = parser.parse_args()
 
     logging.basicConfig(level=logging.DEBUG if options.debug else
-        (logging.ERROR if options.quiet else logging.INFO))
+                        (logging.ERROR if options.quiet else logging.INFO))
 
     logging.debug("using genymotion shell at " + options.command)
 
